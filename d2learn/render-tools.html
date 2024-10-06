@@ -1,0 +1,240 @@
+<div id="code-renderer">
+    <div class="controls">
+      <select id="language-select">
+        <option value="html">HTML</option>
+        <option value="markdown">Markdown</option>
+      </select>
+      <button id="render-button">手动渲染</button>
+      <label class="switch">
+        <input type="checkbox" id="live-render-toggle">
+        <span class="slider round"></span>
+      </label>
+      <span>实时渲染</span>
+    </div>
+    <div class="content-area">
+      <div class="input-area">
+        <h3>代码输入</h3>
+        <textarea id="code-input" rows="20" placeholder="在这里输入代码..."></textarea>
+      </div>
+      <div class="output-area">
+        <h3>渲染结果</h3>
+        <iframe id="render-frame" sandbox="allow-scripts"></iframe>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/highlight.min.js"></script>
+  <script>
+  (function() {
+    document.addEventListener('DOMContentLoaded', function() {
+      const languageSelect = document.getElementById('language-select');
+      const codeInput = document.getElementById('code-input');
+      const renderButton = document.getElementById('render-button');
+      const renderFrame = document.getElementById('render-frame');
+      const liveRenderToggle = document.getElementById('live-render-toggle');
+  
+      let liveRenderTimeout;
+  
+      function initializeFrame() {
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/styles/default.min.css">
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; margin: 0; }
+              pre { background-color: #f4f4f4; padding: 10px; border-radius: 4px; }
+              code { font-family: 'Courier New', Courier, monospace; }
+            </style>
+          </head>
+          <body>
+            <div id="content"></div>
+            <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/highlight.min.js"><\/script>
+            <script>
+              function updateContent(html) {
+                document.getElementById('content').innerHTML = html;
+                document.querySelectorAll('pre code').forEach((block) => {
+                  hljs.highlightElement(block);
+                });
+              }
+              window.addEventListener('message', function(event) {
+                if (event.data && event.data.html) {
+                  updateContent(event.data.html);
+                }
+              }, false);
+            <\/script>
+          </body>
+          </html>
+        `;
+        renderFrame.srcdoc = htmlContent;
+      }
+  
+      function renderCode() {
+        const code = codeInput.value;
+        const language = languageSelect.value;
+        
+        let renderedContent = '';
+        if (language === 'html') {
+          renderedContent = code;
+        } else if (language === 'markdown') {
+          renderedContent = marked.parse(code);
+        }
+  
+        renderFrame.contentWindow.postMessage({html: renderedContent}, '*');
+      }
+  
+      function debounce(func, wait) {
+        clearTimeout(liveRenderTimeout);
+        liveRenderTimeout = setTimeout(func, wait);
+      }
+  
+      renderButton.addEventListener('click', renderCode);
+  
+      codeInput.addEventListener('input', function() {
+        if (liveRenderToggle.checked) {
+          debounce(renderCode, 300);
+        }
+      });
+  
+      liveRenderToggle.addEventListener('change', function() {
+        if (this.checked) {
+          renderCode();
+        }
+      });
+  
+      languageSelect.addEventListener('change', function() {
+        const language = this.value;
+        if (language === 'html') {
+          codeInput.value = '<h1>Hello, D2Learn!</h1>\n<p>这是一个示例HTML。</p>\n<pre><code class="language-c">#include &lt;stdio.h&gt;\n\nint main() {\n    printf("Hello, D2Learn!\\n");\n    return 0;\n}</code></pre>';
+        } else if (language === 'markdown') {
+          codeInput.value = '# Hello, D2Learn!\n\n这是一个示例Markdown。\n\n- 列表项1\n- 列表项2\n\n**试试修改这些内容！**\n\n```c\n#include <stdio.h>\n\nint main() {\n    printf("Hello, D2Learn!\\n");\n    return 0;\n}\n```';
+        }
+        renderCode();
+      });
+  
+      // 初始化
+      initializeFrame();
+      languageSelect.value = 'html';
+      codeInput.value = '<h1>Hello, D2Learn!</h1>\n<p>这是一个示例HTML。</p>\n<pre><code class="language-c">#include &lt;stdio.h&gt;\n\nint main() {\n    printf("Hello, D2Learn!\\n");\n    return 0;\n}</code></pre>';
+      
+      // 等待 iframe 加载完成后再渲染内容
+      renderFrame.onload = function() {
+        renderCode();
+      };
+    });
+  })();
+  </script>
+  
+  <style>
+  #code-renderer {
+    font-family: Arial, sans-serif;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .controls {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+  }
+  
+  #language-select {
+    margin-right: 20px;
+    padding: 5px;
+  }
+  
+  .content-area {
+    display: flex;
+    gap: 20px;
+  }
+  
+  .input-area, .output-area {
+    flex: 1;
+  }
+  
+  #code-input {
+    width: 100%;
+    height: 400px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+  }
+  
+  #render-button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 20px;
+  }
+  
+  #render-button:hover {
+    background-color: #45a049;
+  }
+  
+  #render-frame {
+    width: 100%;
+    height: 400px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  
+  /* 开关样式 */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+    margin-right: 10px;
+  }
+  
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+  }
+  
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+  }
+  
+  input:checked + .slider {
+    background-color: #2196F3;
+  }
+  
+  input:checked + .slider:before {
+    transform: translateX(26px);
+  }
+  
+  .slider.round {
+    border-radius: 34px;
+  }
+  
+  .slider.round:before {
+    border-radius: 50%;
+  }
+  </style>
