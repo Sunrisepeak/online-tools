@@ -27,7 +27,7 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/highlight.min.js"></script>
   <script>
   (function() {
-    document.addEventListener('DOMContentLoaded', function() {
+    function initializeCodeRenderer() {
       const languageSelect = document.getElementById('language-select');
       const codeInput = document.getElementById('code-input');
       const renderButton = document.getElementById('render-button');
@@ -35,6 +35,11 @@
       const liveRenderToggle = document.getElementById('live-render-toggle');
   
       let liveRenderTimeout;
+  
+      const defaultContent = {
+        html: '<h1>Hello, D2Learn!</h1>\n<p>这是一个示例HTML。</p>\n<pre><code class="language-c">#include &lt;stdio.h&gt;\n\nint main() {\n    printf("Hello, D2Learn!\\n");\n    return 0;\n}</code></pre>',
+        markdown: '# Hello, D2Learn!\n\n这是一个示例Markdown。\n\n- 列表项1\n- 列表项2\n\n**试试修改这些内容！**\n\n```c\n#include <stdio.h>\n\nint main() {\n    printf("Hello, D2Learn!\\n");\n    return 0;\n}\n```'
+      };
   
       function initializeFrame() {
         const htmlContent = `
@@ -82,6 +87,9 @@
         }
   
         renderFrame.contentWindow.postMessage({html: renderedContent}, '*');
+        
+        // 保存当前状态
+        saveState();
       }
   
       function debounce(func, wait) {
@@ -89,11 +97,42 @@
         liveRenderTimeout = setTimeout(func, wait);
       }
   
+      function saveState() {
+        const state = {
+          language: languageSelect.value,
+          htmlCode: languageSelect.value === 'html' ? codeInput.value : localStorage.getItem('htmlCode'),
+          markdownCode: languageSelect.value === 'markdown' ? codeInput.value : localStorage.getItem('markdownCode'),
+          liveRender: liveRenderToggle.checked
+        };
+        localStorage.setItem('codeRendererState', JSON.stringify(state));
+      }
+  
+      function loadState() {
+        const savedState = localStorage.getItem('codeRendererState');
+        if (savedState) {
+          const state = JSON.parse(savedState);
+          languageSelect.value = state.language;
+          codeInput.value = state.language === 'html' ? state.htmlCode : state.markdownCode;
+          liveRenderToggle.checked = state.liveRender;
+          localStorage.setItem('htmlCode', state.htmlCode || defaultContent.html);
+          localStorage.setItem('markdownCode', state.markdownCode || defaultContent.markdown);
+        } else {
+          // 如果没有保存的状态，使用默认值
+          languageSelect.value = 'html';
+          codeInput.value = defaultContent.html;
+          liveRenderToggle.checked = false;
+          localStorage.setItem('htmlCode', defaultContent.html);
+          localStorage.setItem('markdownCode', defaultContent.markdown);
+        }
+      }
+  
       renderButton.addEventListener('click', renderCode);
   
       codeInput.addEventListener('input', function() {
         if (liveRenderToggle.checked) {
           debounce(renderCode, 300);
+        } else {
+          saveState();
         }
       });
   
@@ -101,28 +140,56 @@
         if (this.checked) {
           renderCode();
         }
+        saveState();
       });
   
       languageSelect.addEventListener('change', function() {
         const language = this.value;
-        if (language === 'html') {
-          codeInput.value = '<h1>Hello, D2Learn!</h1>\n<p>这是一个示例HTML。</p>\n<pre><code class="language-c">#include &lt;stdio.h&gt;\n\nint main() {\n    printf("Hello, D2Learn!\\n");\n    return 0;\n}</code></pre>';
-        } else if (language === 'markdown') {
-          codeInput.value = '# Hello, D2Learn!\n\n这是一个示例Markdown。\n\n- 列表项1\n- 列表项2\n\n**试试修改这些内容！**\n\n```c\n#include <stdio.h>\n\nint main() {\n    printf("Hello, D2Learn!\\n");\n    return 0;\n}\n```';
-        }
+        const currentCode = codeInput.value;
+        
+        // 保存当前语言的代码
+        localStorage.setItem(`${languageSelect.value === 'html' ? 'markdown' : 'html'}Code`, currentCode);
+  
+        // 加载新语言的代码
+        codeInput.value = localStorage.getItem(`${language}Code`) || defaultContent[language];
+        
         renderCode();
       });
   
       // 初始化
       initializeFrame();
-      languageSelect.value = 'html';
-      codeInput.value = '<h1>Hello, D2Learn!</h1>\n<p>这是一个示例HTML。</p>\n<pre><code class="language-c">#include &lt;stdio.h&gt;\n\nint main() {\n    printf("Hello, D2Learn!\\n");\n    return 0;\n}</code></pre>';
+      loadState();
       
       // 等待 iframe 加载完成后再渲染内容
       renderFrame.onload = function() {
         renderCode();
       };
+    }
+  
+    // 使用 MutationObserver 监听 DOM 变化
+    const observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        if (mutation.type === 'childList') {
+          const codeRenderer = document.getElementById('code-renderer');
+          if (codeRenderer) {
+            initializeCodeRenderer();
+            observer.disconnect(); // 停止观察
+          }
+        }
+      });
     });
+  
+    // 配置 observer
+    const config = { childList: true, subtree: true };
+  
+    // 开始观察
+    observer.observe(document.body, config);
+  
+    // 如果元素已经存在，立即初始化
+    if (document.getElementById('code-renderer')) {
+      initializeCodeRenderer();
+      observer.disconnect(); // 停止观察
+    }
   })();
   </script>
   
